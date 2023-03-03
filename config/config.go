@@ -9,6 +9,8 @@ import (
 	docker "github.com/docker/docker/client"
 	"github.com/joho/godotenv"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 type Flags struct {
@@ -30,21 +32,43 @@ type DockerConfig struct {
 	DockerSocket *docker.Client
 }
 
+type K8sConfig struct {
+	K8sClientSet *kubernetes.Clientset
+	Namespace    string
+}
+
 type PluginConfig struct {
 	On           bool
 	PathToScript string
 }
 
 type Config struct {
+	UseK8s       bool
 	Flags        Flags
 	AMQPConfig   AMQPConfig
 	DockerConfig DockerConfig
 	PluginConfig PluginConfig
+	K8sConfig    K8sConfig
 }
 
 func (cfg *Config) loadDotEnv() {
 	log.Debugf("Loading environment variables")
 	godotenv.Load()
+
+	// Decide whether k8s should be used as an orchestration backend
+	// 1 or true will load the k8s cluster config
+	// Additionally the namespace will be configures from env when using k8s
+	usek8s := strings.ToLower(os.Getenv("USEK8S"))
+	if usek8s == "1" || usek8s == "true" {
+		cfg.UseK8s = true
+		// Set the K8s Namespace from env only if k8s is used
+		cfg.K8sConfig.Namespace = os.Getenv("K8S_NAMESPACE")
+		if cfg.K8sConfig.Namespace == "" {
+			log.Fatalf("Please set K8S_NAMESPACE when using K8s as a container orcherstration backend")
+		}
+	} else {
+		cfg.UseK8s = false
+	}
 
 	// Flags
 	verbose := strings.ToLower(os.Getenv("VERBOSE"))
@@ -117,8 +141,24 @@ func (cfg *Config) loadDocker() {
 	}
 }
 
+func (cfg *Config) loadK8sConfig() {
+	clusterConfig, err := rest.InClusterConfig()
+	if err != nil {
+		log.Fatalf("Could not get k8s cluster config: %s", err)
+	}
+	clientSet, err := kubernetes.NewForConfig(clusterConfig)
+	if err != nil {
+		log.Fatalf("Could not create new client set config: %s", err)
+	}
+	cfg.K8sConfig.K8sClientSet = clientSet
+}
+
 func (cfg *Config) Initialize() {
 	cfg.loadDotEnv()
 	cfg.loadAMQP()
-	cfg.loadDocker()
+	if cfg.UseK8s {
+		cfg.loadK8sConfig()
+	} else {
+		cfg.loadDocker()
+	}
 }
