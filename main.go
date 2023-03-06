@@ -81,6 +81,7 @@ func dockerWorker(cfg *config.Config, ctx context.Context) {
 				fmt.Sprintf("LIVESTREAM_INFO=%s", msg.Data),
 				fmt.Sprintf("LIVESTREAM_ID=%s", vod.ID),
 				fmt.Sprintf("NATS_HOST=%s", cfg.NATSConfig.Host),
+				fmt.Sprintf("NATS_TOPIC=%s", cfg.NATSConfig.Topic),
 				"VERBOSE=true",
 			},
 		}, &container.HostConfig{
@@ -191,6 +192,10 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 									{
 										Name:  "NATS_HOST",
 										Value: cfg.NATSConfig.Host,
+									},
+									{
+										Name:  "NATS_TOPIC",
+										Value: cfg.NATSConfig.Topic,
 									},
 									{
 										Name:  "VERBOSE",
