@@ -61,8 +61,6 @@ func dockerWorker(cfg *config.Config, ctx context.Context) {
 		if err := L.DoFile(cfg.PluginConfig.PathToScript); err != nil {
 			log.Fatalf("Wasn't able to load the Lua script: %s", err)
 		}
-	} else {
-		L.Close()
 	}
 
 	// Subscribe to NATS asynchronously and listen for new jobs and start them once a new job is detected
