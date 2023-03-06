@@ -14,7 +14,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
-	"github.com/rabbitmq/amqp091-go"
+	"github.com/nats-io/nats.go"
 	luaLibs "github.com/vadv/gopher-lua-libs"
 	lua "github.com/yuin/gopher-lua"
 	batchv1 "k8s.io/api/batch/v1"
@@ -40,25 +40,12 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	msgs, err := cfg.AMQPConfig.Channel.Consume(
-		cfg.AMQPConfig.QueueName, // queue
-		"controller",             // consumer
-		true,                     // auto-ack
-		false,                    // exclusive
-		false,                    // no-local
-		false,                    // no-wait
-		nil,                      // args
-	)
-	if err != nil {
-		log.Fatalf("Wasn't able to start consuming the %s queue: %s", cfg.AMQPConfig.QueueName, err)
-	}
-
 	if cfg.UseK8s {
 		log.Infof("%s", "Running in Kubernetes Mode.")
-		go k8sBatchWorker(&cfg, msgs, ctx)
+		go k8sBatchWorker(&cfg, ctx)
 	} else {
 		log.Infof("%s", "Running in Docker Mode.")
-		go dockerWorker(&cfg, msgs, ctx)
+		go dockerWorker(&cfg, ctx)
 	}
 
 	log.Infof("Waiting for VODs...")
@@ -66,7 +53,7 @@ func main() {
 	<-forever
 }
 
-func dockerWorker(cfg *config.Config, msgs <-chan amqp091.Delivery, ctx context.Context) {
+func dockerWorker(cfg *config.Config, ctx context.Context) {
 	L := lua.NewState()
 	defer L.Close()
 	if cfg.PluginConfig.On {
@@ -77,26 +64,25 @@ func dockerWorker(cfg *config.Config, msgs <-chan amqp091.Delivery, ctx context.
 	} else {
 		L.Close()
 	}
-	for d := range msgs {
+
+	// Subscribe to NATS asynchronously and listen for new jobs and start them once a new job is detected
+	if _, err := cfg.NATSConfig.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATSConfig.Topic), func(msg *nats.Msg) {
 		vod := &dggarchivermodel.YTVod{}
-		err := json.Unmarshal(d.Body, vod)
-		if err != nil {
+		if err := json.Unmarshal(msg.Data, vod); err != nil {
 			log.Errorf("Wasn't able to unmarshal VOD, skipping: %s", err)
-			continue
 		}
 		log.Infof("Received a VOD: %s", vod)
 		if cfg.PluginConfig.On {
 			util.LuaCallReceiveFunction(L, vod)
 		}
-
 		containerName := fmt.Sprintf("dggarchiver-worker-%s", vod.ID)
 
 		container, err := cfg.DockerConfig.DockerSocket.ContainerCreate(ctx, &container.Config{
-			Image: "dgghq/dggarchiver-worker:latest",
+			Image: "ghcr.io/dgghq/dggarchiver-worker:main",
 			Env: []string{
-				fmt.Sprintf("LIVESTREAM_INFO=%s", d.Body),
+				fmt.Sprintf("LIVESTREAM_INFO=%s", msg.Data),
 				fmt.Sprintf("LIVESTREAM_ID=%s", vod.ID),
-				fmt.Sprintf("AMQP_URI=%s", cfg.AMQPConfig.URI),
+				fmt.Sprintf("NATS_HOST=%s", cfg.NATSConfig.Host),
 				"VERBOSE=true",
 			},
 		}, &container.HostConfig{
@@ -117,21 +103,22 @@ func dockerWorker(cfg *config.Config, msgs <-chan amqp091.Delivery, ctx context.
 		}, nil, containerName)
 		if err != nil {
 			log.Errorf("Wasn't able to create the worker container, skipping: %s", err)
-			continue
 		}
 
 		if err := cfg.DockerConfig.DockerSocket.ContainerStart(ctx, container.ID, types.ContainerStartOptions{}); err != nil {
 			log.Errorf("Wasn't able to start the worker container, skipping: %s", err)
-			continue
 		}
 
 		if cfg.PluginConfig.On {
 			util.LuaCallContainerFunction(L, vod, err == nil)
 		}
+
+	}); err != nil {
+		log.Fatalf("An error occured when subscribing to topic: %s", err)
 	}
 }
 
-func k8sBatchWorker(cfg *config.Config, msgs <-chan amqp091.Delivery, ctx context.Context) {
+func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 	L := lua.NewState()
 	defer L.Close()
 	if cfg.PluginConfig.On {
@@ -142,12 +129,12 @@ func k8sBatchWorker(cfg *config.Config, msgs <-chan amqp091.Delivery, ctx contex
 	} else {
 		L.Close()
 	}
-	for d := range msgs {
+
+	if _, err := cfg.NATSConfig.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATSConfig.Topic), func(msg *nats.Msg) {
 		vod := &dggarchivermodel.YTVod{}
-		err := json.Unmarshal(d.Body, vod)
+		err := json.Unmarshal(msg.Data, vod)
 		if err != nil {
 			log.Errorf("Wasn't able to unmarshal VOD, skipping: %s", err)
-			continue
 		}
 		log.Infof("Received a VOD: %s", vod)
 		if cfg.PluginConfig.On {
@@ -170,6 +157,11 @@ func k8sBatchWorker(cfg *config.Config, msgs <-chan amqp091.Delivery, ctx contex
 				Parallelism:             &parallelism,
 				Template: v1.PodTemplateSpec{
 					Spec: v1.PodSpec{
+						ImagePullSecrets: []v1.LocalObjectReference{
+							{
+								Name: "registry-1",
+							},
+						},
 						Volumes: []v1.Volume{
 							{
 								Name: "dggworker-volume",
@@ -184,7 +176,7 @@ func k8sBatchWorker(cfg *config.Config, msgs <-chan amqp091.Delivery, ctx contex
 						Containers: []v1.Container{
 							{
 								Name:  jobName,
-								Image: "dgghq/dggarchiver-worker:latest",
+								Image: "ghcr.io/dgghq/dggarchiver-worker:main",
 								VolumeMounts: []v1.VolumeMount{
 									{
 										Name:      "dggworker-volume",
@@ -194,15 +186,15 @@ func k8sBatchWorker(cfg *config.Config, msgs <-chan amqp091.Delivery, ctx contex
 								Env: []v1.EnvVar{
 									{
 										Name:  "LIVESTREAM_INFO",
-										Value: string(d.Body),
+										Value: string(msg.Data),
 									},
 									{
 										Name:  "LIVESTREAM_ID",
 										Value: vod.ID,
 									},
 									{
-										Name:  "AMQP_URI",
-										Value: cfg.AMQPConfig.URI,
+										Name:  "NATS_HOST",
+										Value: cfg.NATSConfig.Host,
 									},
 									{
 										Name:  "VERBOSE",
@@ -224,5 +216,7 @@ func k8sBatchWorker(cfg *config.Config, msgs <-chan amqp091.Delivery, ctx contex
 		if cfg.PluginConfig.On {
 			util.LuaCallContainerFunction(L, vod, err == nil)
 		}
+	}); err != nil {
+		log.Fatalf("An error occured when subscribing to topic: %s", err)
 	}
 }
