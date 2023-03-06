@@ -54,8 +54,10 @@ func main() {
 	}
 
 	if cfg.UseK8s {
+		log.Infof("%s", "Running in Kubernetes Mode.")
 		go k8sBatchWorker(&cfg, msgs, ctx)
 	} else {
+		log.Infof("%s", "Running in Docker Mode.")
 		go dockerWorker(&cfg, msgs, ctx)
 	}
 
