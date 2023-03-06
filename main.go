@@ -119,16 +119,16 @@ func dockerWorker(cfg *config.Config, ctx context.Context) {
 }
 
 func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
-	L := lua.NewState()
-	defer L.Close()
-	if cfg.PluginConfig.On {
-		luaLibs.Preload(L)
-		if err := L.DoFile(cfg.PluginConfig.PathToScript); err != nil {
-			log.Fatalf("Wasn't able to load the Lua script: %s", err)
-		}
-	} else {
-		L.Close()
-	}
+	// L := lua.NewState()
+	// defer L.Close()
+	// if cfg.PluginConfig.On {
+	// 	luaLibs.Preload(L)
+	// 	if err := L.DoFile(cfg.PluginConfig.PathToScript); err != nil {
+	// 		log.Fatalf("Wasn't able to load the Lua script: %s", err)
+	// 	}
+	// } else {
+	// 	L.Close()
+	// }
 
 	if _, err := cfg.NATSConfig.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATSConfig.Topic), func(msg *nats.Msg) {
 		vod := &dggarchivermodel.YTVod{}
@@ -137,9 +137,9 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 			log.Errorf("Wasn't able to unmarshal VOD, skipping: %s", err)
 		}
 		log.Infof("Received a VOD: %s", vod)
-		if cfg.PluginConfig.On {
-			util.LuaCallReceiveFunction(L, vod)
-		}
+		// if cfg.PluginConfig.On {
+		// 	util.LuaCallReceiveFunction(L, vod)
+		// }
 
 		jobName := fmt.Sprintf("dggarchiver-worker-%s", vod.ID)
 		var completions, parallelism, ttl, backoffLimit int32 = 1, 1, 30, 0
@@ -213,9 +213,9 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 		}
 		log.Infof("Batch '%s' created in namespace '%s'.\n", batch.Name, cfg.K8sConfig.Namespace)
 
-		if cfg.PluginConfig.On {
-			util.LuaCallContainerFunction(L, vod, err == nil)
-		}
+		// if cfg.PluginConfig.On {
+		// 	util.LuaCallContainerFunction(L, vod, err == nil)
+		// }
 	}); err != nil {
 		log.Fatalf("An error occured when subscribing to topic: %s", err)
 	}
