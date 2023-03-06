@@ -72,7 +72,7 @@ func (cfg *Config) loadDotEnv() {
 		log.Fatalf("Please set the NATS_HOST environment variable and restart the app")
 	}
 
-	// NATS Topic Naem
+	// NATS Topic Name
 	cfg.NATSConfig.Topic = os.Getenv("NATS_TOPIC")
 	if cfg.NATSConfig.Topic == "" {
 		log.Fatalf("Please set the NATS_TOPIC environment variable and restart the app")
