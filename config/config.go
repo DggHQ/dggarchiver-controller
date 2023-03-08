@@ -68,11 +68,11 @@ func (cfg *Config) loadDotEnv() {
 			log.Fatalf("Please set K8S_NAMESPACE when using K8s as a container orcherstration backend")
 		}
 		cfg.K8sConfig.CPULimitConfig = os.Getenv("K8S_CPU_LIMIT")
-		if cfg.K8sConfig.Namespace == "" {
+		if cfg.K8sConfig.CPULimitConfig == "" {
 			log.Fatalf("Please set K8S_CPU_LIMIT when using K8s as a container orcherstration backend")
 		}
 		cfg.K8sConfig.MemoryLimitConfig = os.Getenv("K8S_MEMORY_LIMIT")
-		if cfg.K8sConfig.Namespace == "" {
+		if cfg.K8sConfig.MemoryLimitConfig == "" {
 			log.Fatalf("Please set K8S_MEMORY_LIMIT when using K8s as a container orcherstration backend")
 		}
 	} else {
