@@ -180,6 +180,12 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 										MountPath: "/videos",
 									},
 								},
+								Resources: v1.ResourceRequirements{
+									Limits: v1.ResourceList{
+										v1.ResourceMemory: cfg.K8sConfig.MemoryQuantity,
+										v1.ResourceCPU:    cfg.K8sConfig.CPUQuantity,
+									},
+								},
 								Env: []v1.EnvVar{
 									{
 										Name:  "LIVESTREAM_INFO",

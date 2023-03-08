@@ -9,6 +9,7 @@ import (
 	docker "github.com/docker/docker/client"
 	"github.com/joho/godotenv"
 	"github.com/nats-io/nats.go"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -29,8 +30,12 @@ type DockerConfig struct {
 }
 
 type K8sConfig struct {
-	K8sClientSet *kubernetes.Clientset
-	Namespace    string
+	K8sClientSet      *kubernetes.Clientset
+	Namespace         string
+	CPULimitConfig    string
+	MemoryLimitConfig string
+	CPUQuantity       resource.Quantity
+	MemoryQuantity    resource.Quantity
 }
 
 type PluginConfig struct {
@@ -61,6 +66,14 @@ func (cfg *Config) loadDotEnv() {
 		cfg.K8sConfig.Namespace = os.Getenv("K8S_NAMESPACE")
 		if cfg.K8sConfig.Namespace == "" {
 			log.Fatalf("Please set K8S_NAMESPACE when using K8s as a container orcherstration backend")
+		}
+		cfg.K8sConfig.CPULimitConfig = os.Getenv("K8S_CPU_LIMIT")
+		if cfg.K8sConfig.Namespace == "" {
+			log.Fatalf("Please set K8S_CPU_LIMIT when using K8s as a container orcherstration backend")
+		}
+		cfg.K8sConfig.MemoryLimitConfig = os.Getenv("K8S_MEMORY_LIMIT")
+		if cfg.K8sConfig.Namespace == "" {
+			log.Fatalf("Please set K8S_MEMORY_LIMIT when using K8s as a container orcherstration backend")
 		}
 	} else {
 		cfg.UseK8s = false
@@ -124,6 +137,18 @@ func (cfg *Config) loadDocker() {
 
 func (cfg *Config) loadK8sConfig() {
 	clusterConfig, err := rest.InClusterConfig()
+
+	if cpuLimit, err := resource.ParseQuantity(cfg.K8sConfig.CPULimitConfig); err != nil {
+		log.Fatalf("Could not parse K8S_CPU_LIMIT: %s", err)
+	} else {
+		cfg.K8sConfig.CPUQuantity = cpuLimit
+	}
+	if memoryLimit, err := resource.ParseQuantity(cfg.K8sConfig.MemoryLimitConfig); err != nil {
+		log.Fatalf("Could not parse K8S_MEMORY_LIMIT: %s", err)
+	} else {
+		cfg.K8sConfig.MemoryQuantity = memoryLimit
+	}
+
 	if err != nil {
 		log.Fatalf("Could not get k8s cluster config: %s", err)
 	}
