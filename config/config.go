@@ -1,14 +1,15 @@
 package config
 
 import (
-	"context"
 	"os"
 	"strings"
+	"time"
 
 	log "github.com/DggHQ/dggarchiver-logger"
 	docker "github.com/docker/docker/client"
 	"github.com/joho/godotenv"
-	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/nats-io/nats.go"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -17,14 +18,10 @@ type Flags struct {
 	Verbose bool
 }
 
-type AMQPConfig struct {
-	URI          string
-	ExchangeName string
-	ExchangeType string
-	QueueName    string
-	Context      context.Context
-	Channel      *amqp.Channel
-	connection   *amqp.Connection
+type NATSConfig struct {
+	Host           string
+	Topic          string
+	NatsConnection *nats.Conn
 }
 
 type DockerConfig struct {
@@ -33,8 +30,12 @@ type DockerConfig struct {
 }
 
 type K8sConfig struct {
-	K8sClientSet *kubernetes.Clientset
-	Namespace    string
+	K8sClientSet      *kubernetes.Clientset
+	Namespace         string
+	CPULimitConfig    string
+	MemoryLimitConfig string
+	CPUQuantity       resource.Quantity
+	MemoryQuantity    resource.Quantity
 }
 
 type PluginConfig struct {
@@ -45,10 +46,10 @@ type PluginConfig struct {
 type Config struct {
 	UseK8s       bool
 	Flags        Flags
-	AMQPConfig   AMQPConfig
 	DockerConfig DockerConfig
 	PluginConfig PluginConfig
 	K8sConfig    K8sConfig
+	NATSConfig   NATSConfig
 }
 
 func (cfg *Config) loadDotEnv() {
@@ -66,8 +67,28 @@ func (cfg *Config) loadDotEnv() {
 		if cfg.K8sConfig.Namespace == "" {
 			log.Fatalf("Please set K8S_NAMESPACE when using K8s as a container orcherstration backend")
 		}
+		cfg.K8sConfig.CPULimitConfig = os.Getenv("K8S_CPU_LIMIT")
+		if cfg.K8sConfig.CPULimitConfig == "" {
+			log.Fatalf("Please set K8S_CPU_LIMIT when using K8s as a container orcherstration backend")
+		}
+		cfg.K8sConfig.MemoryLimitConfig = os.Getenv("K8S_MEMORY_LIMIT")
+		if cfg.K8sConfig.MemoryLimitConfig == "" {
+			log.Fatalf("Please set K8S_MEMORY_LIMIT when using K8s as a container orcherstration backend")
+		}
 	} else {
 		cfg.UseK8s = false
+	}
+
+	// NATS Host Name or IP
+	cfg.NATSConfig.Host = os.Getenv("NATS_HOST")
+	if cfg.NATSConfig.Host == "" {
+		log.Fatalf("Please set the NATS_HOST environment variable and restart the app")
+	}
+
+	// NATS Topic Name
+	cfg.NATSConfig.Topic = os.Getenv("NATS_TOPIC")
+	if cfg.NATSConfig.Topic == "" {
+		log.Fatalf("Please set the NATS_TOPIC environment variable and restart the app")
 	}
 
 	// Flags
@@ -75,15 +96,6 @@ func (cfg *Config) loadDotEnv() {
 	if verbose == "1" || verbose == "true" {
 		cfg.Flags.Verbose = true
 	}
-
-	// AMQP
-	cfg.AMQPConfig.URI = os.Getenv("AMQP_URI")
-	if cfg.AMQPConfig.URI == "" {
-		log.Fatalf("Please set the AMQP_URI environment variable and restart the app")
-	}
-	cfg.AMQPConfig.ExchangeName = ""
-	cfg.AMQPConfig.ExchangeType = "direct"
-	cfg.AMQPConfig.QueueName = "notifier"
 
 	// Docker
 	cfg.DockerConfig.NetworkName = os.Getenv("DOCKER_NETWORK")
@@ -104,32 +116,14 @@ func (cfg *Config) loadDotEnv() {
 	log.Debugf("Environment variables loaded successfully")
 }
 
-func (cfg *Config) loadAMQP() {
-	var err error
-
-	cfg.AMQPConfig.Context = context.Background()
-
-	cfg.AMQPConfig.connection, err = amqp.Dial(cfg.AMQPConfig.URI)
+func (cfg *Config) loadNats() {
+	// Connect to NATS server
+	nc, err := nats.Connect(cfg.NATSConfig.Host, nil, nats.PingInterval(20*time.Second), nats.MaxPingsOutstanding(5))
 	if err != nil {
-		log.Fatalf("Wasn't able to connect to the AMQP server: %s", err)
+		log.Fatalf("Could not connect to NATS server: %s", err)
 	}
-
-	cfg.AMQPConfig.Channel, err = cfg.AMQPConfig.connection.Channel()
-	if err != nil {
-		log.Fatalf("Wasn't able to create the AMQP channel: %s", err)
-	}
-
-	_, err = cfg.AMQPConfig.Channel.QueueDeclare(
-		cfg.AMQPConfig.QueueName, // queue name
-		true,                     // durable
-		false,                    // auto delete
-		false,                    // exclusive
-		false,                    // no wait
-		nil,                      // arguments
-	)
-	if err != nil {
-		log.Fatalf("Wasn't able to declare the AMQP queue: %s", err)
-	}
+	log.Infof("Successfully connected to NATS server: %s", cfg.NATSConfig.Host)
+	cfg.NATSConfig.NatsConnection = nc
 }
 
 func (cfg *Config) loadDocker() {
@@ -143,6 +137,18 @@ func (cfg *Config) loadDocker() {
 
 func (cfg *Config) loadK8sConfig() {
 	clusterConfig, err := rest.InClusterConfig()
+
+	if cpuLimit, err := resource.ParseQuantity(cfg.K8sConfig.CPULimitConfig); err != nil {
+		log.Fatalf("Could not parse K8S_CPU_LIMIT: %s", err)
+	} else {
+		cfg.K8sConfig.CPUQuantity = cpuLimit
+	}
+	if memoryLimit, err := resource.ParseQuantity(cfg.K8sConfig.MemoryLimitConfig); err != nil {
+		log.Fatalf("Could not parse K8S_MEMORY_LIMIT: %s", err)
+	} else {
+		cfg.K8sConfig.MemoryQuantity = memoryLimit
+	}
+
 	if err != nil {
 		log.Fatalf("Could not get k8s cluster config: %s", err)
 	}
@@ -155,7 +161,7 @@ func (cfg *Config) loadK8sConfig() {
 
 func (cfg *Config) Initialize() {
 	cfg.loadDotEnv()
-	cfg.loadAMQP()
+	cfg.loadNats()
 	if cfg.UseK8s {
 		cfg.loadK8sConfig()
 	} else {
