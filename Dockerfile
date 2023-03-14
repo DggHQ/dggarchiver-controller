@@ -1,8 +1,9 @@
 FROM golang:alpine as builder
+ARG TARGETARCH
 LABEL builder=true multistage_tag="dggarchiver-controller-builder"
 WORKDIR /app
 COPY . .
-RUN GOOS=linux GOARCH=amd64 go build
+RUN GOOS=linux GOARCH=${TARGETARCH} go build
 
 FROM alpine:3.17
 WORKDIR /app
