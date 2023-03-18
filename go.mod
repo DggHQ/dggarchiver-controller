@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/DggHQ/dggarchiver-logger v0.0.0-20230224190431-3025eee98c2d
-	github.com/DggHQ/dggarchiver-model v0.0.0-20230224184635-bcc8612f448f
+	github.com/DggHQ/dggarchiver-model v0.0.0-20230318230033-3a73d838394c
 	github.com/docker/docker v20.10.22+incompatible
 	github.com/joho/godotenv v1.4.0
 	github.com/nats-io/nats.go v1.24.0

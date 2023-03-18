@@ -65,7 +65,7 @@ func dockerWorker(cfg *config.Config, ctx context.Context) {
 
 	// Subscribe to NATS asynchronously and listen for new jobs and start them once a new job is detected
 	if _, err := cfg.NATSConfig.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATSConfig.Topic), func(msg *nats.Msg) {
-		vod := &dggarchivermodel.YTVod{}
+		vod := &dggarchivermodel.VOD{}
 		if err := json.Unmarshal(msg.Data, vod); err != nil {
 			log.Errorf("Wasn't able to unmarshal VOD, skipping: %s", err)
 		}
@@ -75,11 +75,21 @@ func dockerWorker(cfg *config.Config, ctx context.Context) {
 		}
 		containerName := fmt.Sprintf("dggarchiver-worker-%s", vod.ID)
 
+		var livestreamUrl string
+		switch vod.Platform {
+		case "youtube":
+			livestreamUrl = fmt.Sprintf("https://youtu.be/%s", vod.ID)
+		case "rumble", "kick":
+			livestreamUrl = vod.PlaybackURL
+		}
+
 		container, err := cfg.DockerConfig.DockerSocket.ContainerCreate(ctx, &container.Config{
 			Image: "ghcr.io/dgghq/dggarchiver-worker:main",
 			Env: []string{
 				fmt.Sprintf("LIVESTREAM_INFO=%s", msg.Data),
 				fmt.Sprintf("LIVESTREAM_ID=%s", vod.ID),
+				fmt.Sprintf("LIVESTREAM_URL=%s", livestreamUrl),
+				fmt.Sprintf("LIVESTREAM_PLATFORM=%s", vod.Platform),
 				fmt.Sprintf("NATS_HOST=%s", cfg.NATSConfig.Host),
 				fmt.Sprintf("NATS_TOPIC=%s", cfg.NATSConfig.Topic),
 				"VERBOSE=true",
@@ -128,7 +138,7 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 	}
 
 	if _, err := cfg.NATSConfig.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATSConfig.Topic), func(msg *nats.Msg) {
-		vod := &dggarchivermodel.YTVod{}
+		vod := &dggarchivermodel.VOD{}
 		err := json.Unmarshal(msg.Data, vod)
 		if err != nil {
 			log.Errorf("Wasn't able to unmarshal VOD, skipping: %s", err)
@@ -136,6 +146,14 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 		log.Infof("Received a VOD: %s", vod)
 		if cfg.PluginConfig.On {
 			util.LuaCallReceiveFunction(L, vod)
+		}
+
+		var livestreamUrl string
+		switch vod.Platform {
+		case "youtube":
+			livestreamUrl = fmt.Sprintf("https://youtu.be/%s", vod.ID)
+		case "rumble", "kick":
+			livestreamUrl = vod.PlaybackURL
 		}
 
 		jobName := fmt.Sprintf("dggarchiver-worker-%s", vod.ID)
@@ -194,6 +212,10 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 									{
 										Name:  "LIVESTREAM_ID",
 										Value: vod.ID,
+									},
+									{
+										Name:  "LIVESTREAM_URL",
+										Value: livestreamUrl,
 									},
 									{
 										Name:  "NATS_HOST",

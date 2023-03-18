@@ -36,8 +36,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/DggHQ/dggarchiver-logger v0.0.0-20230224190431-3025eee98c2d h1:5/enw2AgKEr8lrqSfVeSd6rNJPcwOdVYVf7aoArwPqU=
 github.com/DggHQ/dggarchiver-logger v0.0.0-20230224190431-3025eee98c2d/go.mod h1:MaTChhaDRABk0Pnm5KC+VIsQKN783vhV4gWOyyZVp2I=
-github.com/DggHQ/dggarchiver-model v0.0.0-20230224184635-bcc8612f448f h1:mfH6APBsYxnJus77wh6XlPkb153AOKWe+Ypb1qNfcHw=
-github.com/DggHQ/dggarchiver-model v0.0.0-20230224184635-bcc8612f448f/go.mod h1:KPXeH8tl5G8xxCz2LdBq5dO1gfSrehCeDMtiCr8MFQg=
+github.com/DggHQ/dggarchiver-model v0.0.0-20230318230033-3a73d838394c h1:g0NcXASPoLR5+3NsnAGnWUYxtCfWPvr/3Fe3oRMTeTY=
+github.com/DggHQ/dggarchiver-model v0.0.0-20230318230033-3a73d838394c/go.mod h1:KPXeH8tl5G8xxCz2LdBq5dO1gfSrehCeDMtiCr8MFQg=
 github.com/Microsoft/go-winio v0.6.0 h1:slsWYD/zyx7lCXoZVlvQrj0hPTM1HI4+v1sIda2yDvg=
 github.com/Microsoft/go-winio v0.6.0/go.mod h1:cTAf44im0RAYeL23bpB+fzCyDH2MJiz2BO69KH/soAE=
 github.com/VividCortex/ewma v1.1.1 h1:MnEK4VOv6n0RSY4vtRe3h11qjxL3+t0B8yOL8iMXdcM=

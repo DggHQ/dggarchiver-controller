@@ -14,7 +14,7 @@ type LuaResponse struct {
 	Data    map[string]interface{}
 }
 
-func LuaCallReceiveFunction(L *lua.LState, vod *dggarchivermodel.YTVod) *LuaResponse {
+func LuaCallReceiveFunction(L *lua.LState, vod *dggarchivermodel.VOD) *LuaResponse {
 	luaVOD := luar.New(L, vod)
 
 	result := &LuaResponse{}
@@ -39,7 +39,7 @@ func LuaCallReceiveFunction(L *lua.LState, vod *dggarchivermodel.YTVod) *LuaResp
 	return result
 }
 
-func LuaCallContainerFunction(L *lua.LState, vod *dggarchivermodel.YTVod, success bool) *LuaResponse {
+func LuaCallContainerFunction(L *lua.LState, vod *dggarchivermodel.VOD, success bool) *LuaResponse {
 	luaVOD := luar.New(L, vod)
 	luaSuccess := luar.New(L, success)
 
