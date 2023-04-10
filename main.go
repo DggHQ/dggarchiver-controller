@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DggHQ/dggarchiver-controller/config"
+	config "github.com/DggHQ/dggarchiver-config"
 	"github.com/DggHQ/dggarchiver-controller/util"
 	log "github.com/DggHQ/dggarchiver-logger"
 	dggarchivermodel "github.com/DggHQ/dggarchiver-model"
@@ -34,13 +34,13 @@ func main() {
 	ctx := context.Background()
 
 	cfg := config.Config{}
-	cfg.Initialize()
+	cfg.Load("controller")
 
-	if cfg.Flags.Verbose {
+	if cfg.Controller.Verbose {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	if cfg.UseK8s {
+	if cfg.Controller.K8s.Enabled {
 		log.Infof("%s", "Running in Kubernetes Mode.")
 		go k8sBatchWorker(&cfg, ctx)
 	} else {
@@ -56,32 +56,42 @@ func main() {
 func dockerWorker(cfg *config.Config, ctx context.Context) {
 	L := lua.NewState()
 	defer L.Close()
-	if cfg.PluginConfig.On {
+	if cfg.Controller.Plugins.Enabled {
 		luaLibs.Preload(L)
-		if err := L.DoFile(cfg.PluginConfig.PathToScript); err != nil {
+		if err := L.DoFile(cfg.Controller.Plugins.PathToPlugin); err != nil {
 			log.Fatalf("Wasn't able to load the Lua script: %s", err)
 		}
 	}
 
 	// Subscribe to NATS asynchronously and listen for new jobs and start them once a new job is detected
-	if _, err := cfg.NATSConfig.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATSConfig.Topic), func(msg *nats.Msg) {
-		vod := &dggarchivermodel.YTVod{}
+	if _, err := cfg.NATS.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATS.Topic), func(msg *nats.Msg) {
+		vod := &dggarchivermodel.VOD{}
 		if err := json.Unmarshal(msg.Data, vod); err != nil {
 			log.Errorf("Wasn't able to unmarshal VOD, skipping: %s", err)
 		}
 		log.Infof("Received a VOD: %s", vod)
-		if cfg.PluginConfig.On {
+		if cfg.Controller.Plugins.Enabled {
 			util.LuaCallReceiveFunction(L, vod)
 		}
 		containerName := fmt.Sprintf("dggarchiver-worker-%s", vod.ID)
 
-		container, err := cfg.DockerConfig.DockerSocket.ContainerCreate(ctx, &container.Config{
-			Image: "ghcr.io/dgghq/dggarchiver-worker:main",
+		var livestreamUrl string
+		switch vod.Platform {
+		case "youtube":
+			livestreamUrl = fmt.Sprintf("https://youtu.be/%s", vod.ID)
+		case "rumble", "kick":
+			livestreamUrl = vod.PlaybackURL
+		}
+
+		container, err := cfg.Controller.Docker.DockerSocket.ContainerCreate(ctx, &container.Config{
+			Image: cfg.Controller.WorkerImage,
 			Env: []string{
 				fmt.Sprintf("LIVESTREAM_INFO=%s", msg.Data),
 				fmt.Sprintf("LIVESTREAM_ID=%s", vod.ID),
-				fmt.Sprintf("NATS_HOST=%s", cfg.NATSConfig.Host),
-				fmt.Sprintf("NATS_TOPIC=%s", cfg.NATSConfig.Topic),
+				fmt.Sprintf("LIVESTREAM_URL=%s", livestreamUrl),
+				fmt.Sprintf("LIVESTREAM_PLATFORM=%s", vod.Platform),
+				fmt.Sprintf("NATS_HOST=%s", cfg.NATS.Host),
+				fmt.Sprintf("NATS_TOPIC=%s", cfg.NATS.Topic),
 				"VERBOSE=true",
 			},
 		}, &container.HostConfig{
@@ -92,11 +102,11 @@ func dockerWorker(cfg *config.Config, ctx context.Context) {
 					Target: "/videos",
 				},
 			},
-			AutoRemove: true,
+			AutoRemove: cfg.Controller.Docker.AutoRemove,
 		}, &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
-				cfg.DockerConfig.NetworkName: {
-					NetworkID: cfg.DockerConfig.NetworkName,
+				cfg.Controller.Docker.Network: {
+					NetworkID: cfg.Controller.Docker.Network,
 				},
 			},
 		}, nil, containerName)
@@ -104,11 +114,11 @@ func dockerWorker(cfg *config.Config, ctx context.Context) {
 			log.Errorf("Wasn't able to create the worker container, skipping: %s", err)
 		}
 
-		if err := cfg.DockerConfig.DockerSocket.ContainerStart(ctx, container.ID, types.ContainerStartOptions{}); err != nil {
+		if err := cfg.Controller.Docker.DockerSocket.ContainerStart(ctx, container.ID, types.ContainerStartOptions{}); err != nil {
 			log.Errorf("Wasn't able to start the worker container, skipping: %s", err)
 		}
 
-		if cfg.PluginConfig.On {
+		if cfg.Controller.Plugins.Enabled {
 			util.LuaCallContainerFunction(L, vod, err == nil)
 		}
 
@@ -120,32 +130,40 @@ func dockerWorker(cfg *config.Config, ctx context.Context) {
 func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 	L := lua.NewState()
 	defer L.Close()
-	if cfg.PluginConfig.On {
+	if cfg.Controller.Plugins.Enabled {
 		luaLibs.Preload(L)
-		if err := L.DoFile(cfg.PluginConfig.PathToScript); err != nil {
+		if err := L.DoFile(cfg.Controller.Plugins.PathToPlugin); err != nil {
 			log.Fatalf("Wasn't able to load the Lua script: %s", err)
 		}
 	}
 
-	if _, err := cfg.NATSConfig.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATSConfig.Topic), func(msg *nats.Msg) {
-		vod := &dggarchivermodel.YTVod{}
+	if _, err := cfg.NATS.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATS.Topic), func(msg *nats.Msg) {
+		vod := &dggarchivermodel.VOD{}
 		err := json.Unmarshal(msg.Data, vod)
 		if err != nil {
 			log.Errorf("Wasn't able to unmarshal VOD, skipping: %s", err)
 		}
 		log.Infof("Received a VOD: %s", vod)
-		if cfg.PluginConfig.On {
+		if cfg.Controller.Plugins.Enabled {
 			util.LuaCallReceiveFunction(L, vod)
+		}
+
+		var livestreamUrl string
+		switch vod.Platform {
+		case "youtube":
+			livestreamUrl = fmt.Sprintf("https://youtu.be/%s", vod.ID)
+		case "rumble", "kick":
+			livestreamUrl = vod.PlaybackURL
 		}
 
 		jobName := fmt.Sprintf("dggarchiver-worker-%s", vod.ID)
 		var completions, parallelism, ttl, backoffLimit int32 = 1, 1, 30, 0
-		clientSet := cfg.K8sConfig.K8sClientSet
-		jobs := clientSet.BatchV1().Jobs(cfg.K8sConfig.Namespace)
+		clientSet := cfg.Controller.K8s.K8sClientSet
+		jobs := clientSet.BatchV1().Jobs(cfg.Controller.K8s.Namespace)
 		jobSpec := &batchv1.Job{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      jobName,
-				Namespace: cfg.K8sConfig.Namespace,
+				Namespace: cfg.Controller.K8s.Namespace,
 			},
 			Spec: batchv1.JobSpec{
 				BackoffLimit:            &backoffLimit,
@@ -173,7 +191,7 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 						Containers: []v1.Container{
 							{
 								Name:  jobName,
-								Image: "ghcr.io/dgghq/dggarchiver-worker:main",
+								Image: cfg.Controller.WorkerImage,
 								VolumeMounts: []v1.VolumeMount{
 									{
 										Name:      "dggworker-volume",
@@ -182,8 +200,8 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 								},
 								Resources: v1.ResourceRequirements{
 									Limits: v1.ResourceList{
-										v1.ResourceMemory: cfg.K8sConfig.MemoryQuantity,
-										v1.ResourceCPU:    cfg.K8sConfig.CPUQuantity,
+										v1.ResourceMemory: cfg.Controller.K8s.MemoryQuantity,
+										v1.ResourceCPU:    cfg.Controller.K8s.CPUQuantity,
 									},
 								},
 								Env: []v1.EnvVar{
@@ -196,12 +214,16 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 										Value: vod.ID,
 									},
 									{
+										Name:  "LIVESTREAM_URL",
+										Value: livestreamUrl,
+									},
+									{
 										Name:  "NATS_HOST",
-										Value: cfg.NATSConfig.Host,
+										Value: cfg.NATS.Host,
 									},
 									{
 										Name:  "NATS_TOPIC",
-										Value: cfg.NATSConfig.Topic,
+										Value: cfg.NATS.Topic,
 									},
 									{
 										Name:  "VERBOSE",
@@ -218,9 +240,9 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 		if err != nil {
 			log.Fatalf("Error creating batch job: %s", err)
 		}
-		log.Infof("Batch '%s' created in namespace '%s'.\n", batch.Name, cfg.K8sConfig.Namespace)
+		log.Infof("Batch '%s' created in namespace '%s'.\n", batch.Name, cfg.Controller.K8s.Namespace)
 
-		if cfg.PluginConfig.On {
+		if cfg.Controller.Plugins.Enabled {
 			util.LuaCallContainerFunction(L, vod, err == nil)
 		}
 	}); err != nil {
