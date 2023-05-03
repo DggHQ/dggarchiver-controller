@@ -92,6 +92,7 @@ func dockerWorker(cfg *config.Config, ctx context.Context) {
 				fmt.Sprintf("LIVESTREAM_PLATFORM=%s", vod.Platform),
 				fmt.Sprintf("NATS_HOST=%s", cfg.NATS.Host),
 				fmt.Sprintf("NATS_TOPIC=%s", cfg.NATS.Topic),
+				fmt.Sprintf("KICK_DOWNLOADER=%s", cfg.Controller.KickDownloader),
 				"VERBOSE=true",
 			},
 		}, &container.HostConfig{
@@ -224,6 +225,10 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 									{
 										Name:  "NATS_TOPIC",
 										Value: cfg.NATS.Topic,
+									},
+									{
+										Name:  "KICK_DOWNLOADER",
+										Value: cfg.Controller.KickDownloader,
 									},
 									{
 										Name:  "VERBOSE",
