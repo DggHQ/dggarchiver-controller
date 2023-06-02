@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	config "github.com/DggHQ/dggarchiver-config"
+	config "github.com/DggHQ/dggarchiver-config/controller"
 	"github.com/DggHQ/dggarchiver-controller/util"
 	log "github.com/DggHQ/dggarchiver-logger"
 	dggarchivermodel "github.com/DggHQ/dggarchiver-model"
@@ -34,7 +34,7 @@ func main() {
 	ctx := context.Background()
 
 	cfg := config.Config{}
-	cfg.Load("controller")
+	cfg.Load()
 
 	if cfg.Controller.Verbose {
 		log.SetLevel(log.DebugLevel)
