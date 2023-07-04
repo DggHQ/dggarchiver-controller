@@ -2,3 +2,4 @@
 dggarchiver-controller*
 .vscode
 *.lua
+!*.example.lua
