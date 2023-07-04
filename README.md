@@ -14,7 +14,7 @@ The service can be extended with Lua plugins/scripts. An example can be found in
 
 If enabled, the service will call these functions from the specified ```.lua``` file:
 - ```OnReceive(vod)``` when a job has been received, where ```vod``` is the livestream struct
-- ```OnContainer(vod, success)``` when a worker container has been created, where ```vod``` is the livestream struct, and ```success``` is the boolean signifying success.
+- ```OnContainer(vod, success)``` when a worker container has been created, where ```vod``` is the livestream struct, and ```success``` is the boolean signifying success
 
 After the functions are done executing, the service will check the global ```ReceiveResponse``` and ```ContainerResponse``` variables for errors, before returning the struct. The struct's fields are:
 ```go
