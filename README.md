@@ -46,4 +46,8 @@ controller:
     enabled: no
     path: controller.lua # path to the lua plugin
   verbose: no # increases log verbosity
+
+nats:
+  host: nats # nats uri
+  topic: archiver # main nats topic
 ```
