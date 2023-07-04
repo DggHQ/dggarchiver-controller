@@ -1,0 +1,15 @@
+controller:
+  worker_image: ghcr.io/dgghq/dggarchiver-worker:main # mandatory field, sets the worker image used to download the livestreams
+  docker:
+    autoremove: yes # automatically remove the worker container after it's done, can be set to 'no' for debugging
+    enabled: yes
+    network: dggarchiver-network # mandatory field, the docker network to assign to the worker image
+  k8s:
+    enabled: no
+    namespace: dgghq # mandatory field, sets the worker namespace
+    cpu_limit: 150m # mandatory field, sets the worker cpu limit for K8s
+    memory_limit: 50Mi # mandatory field, sets the worker memory limit for K8s
+  plugins:
+    enabled: no
+    path: controller.lua # path to the lua plugin
+  verbose: no # increases log verbosity
