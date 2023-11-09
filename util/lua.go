@@ -14,14 +14,14 @@ type LuaResponse struct {
 	Data    map[string]interface{}
 }
 
-func LuaCallReceiveFunction(L *lua.LState, vod *dggarchivermodel.VOD) *LuaResponse {
-	luaVOD := luar.New(L, vod)
+func LuaCallReceiveFunction(l *lua.LState, vod *dggarchivermodel.VOD) *LuaResponse {
+	luaVOD := luar.New(l, vod)
 
 	result := &LuaResponse{}
-	L.SetGlobal("ReceiveResponse", luar.New(L, result))
+	l.SetGlobal("ReceiveResponse", luar.New(l, result))
 
-	if err := L.CallByParam(lua.P{
-		Fn:      L.GetGlobal("OnReceive"),
+	if err := l.CallByParam(lua.P{
+		Fn:      l.GetGlobal("OnReceive"),
 		NRet:    0,
 		Protect: true,
 	}, luaVOD); err != nil {
@@ -39,15 +39,15 @@ func LuaCallReceiveFunction(L *lua.LState, vod *dggarchivermodel.VOD) *LuaRespon
 	return result
 }
 
-func LuaCallContainerFunction(L *lua.LState, vod *dggarchivermodel.VOD, success bool) *LuaResponse {
-	luaVOD := luar.New(L, vod)
-	luaSuccess := luar.New(L, success)
+func LuaCallContainerFunction(l *lua.LState, vod *dggarchivermodel.VOD, success bool) *LuaResponse {
+	luaVOD := luar.New(l, vod)
+	luaSuccess := luar.New(l, success)
 
 	result := &LuaResponse{}
-	L.SetGlobal("ContainerResponse", luar.New(L, result))
+	l.SetGlobal("ContainerResponse", luar.New(l, result))
 
-	if err := L.CallByParam(lua.P{
-		Fn:      L.GetGlobal("OnContainer"),
+	if err := l.CallByParam(lua.P{
+		Fn:      l.GetGlobal("OnContainer"),
 		NRet:    0,
 		Protect: true,
 	}, luaVOD, luaSuccess); err != nil {
