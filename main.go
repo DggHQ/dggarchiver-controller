@@ -42,10 +42,10 @@ func main() {
 
 	if cfg.Controller.K8s.Enabled {
 		log.Infof("%s", "Running in Kubernetes Mode.")
-		go k8sBatchWorker(&cfg, ctx)
+		go k8sBatchWorker(&cfg)
 	} else {
 		log.Infof("%s", "Running in Docker Mode.")
-		go dockerWorker(&cfg, ctx)
+		go dockerWorker(ctx, &cfg)
 	}
 
 	log.Infof("Waiting for VODs...")
@@ -53,12 +53,11 @@ func main() {
 	<-forever
 }
 
-func dockerWorker(cfg *config.Config, ctx context.Context) {
-	L := lua.NewState()
-	defer L.Close()
+func dockerWorker(ctx context.Context, cfg *config.Config) {
+	l := lua.NewState()
 	if cfg.Controller.Plugins.Enabled {
-		luaLibs.Preload(L)
-		if err := L.DoFile(cfg.Controller.Plugins.PathToPlugin); err != nil {
+		luaLibs.Preload(l)
+		if err := l.DoFile(cfg.Controller.Plugins.PathToPlugin); err != nil {
 			log.Fatalf("Wasn't able to load the Lua script: %s", err)
 		}
 	}
@@ -71,16 +70,16 @@ func dockerWorker(cfg *config.Config, ctx context.Context) {
 		}
 		log.Infof("Received a VOD: %s", vod)
 		if cfg.Controller.Plugins.Enabled {
-			util.LuaCallReceiveFunction(L, vod)
+			util.LuaCallReceiveFunction(l, vod)
 		}
 		containerName := fmt.Sprintf("dggarchiver-worker-%s", vod.ID)
 
-		var livestreamUrl string
+		var livestreamURL string
 		switch vod.Platform {
 		case "youtube":
-			livestreamUrl = fmt.Sprintf("https://youtu.be/%s", vod.ID)
+			livestreamURL = fmt.Sprintf("https://youtu.be/%s", vod.ID)
 		case "rumble", "kick":
-			livestreamUrl = vod.PlaybackURL
+			livestreamURL = vod.PlaybackURL
 		}
 
 		container, err := cfg.Controller.Docker.DockerSocket.ContainerCreate(ctx, &container.Config{
@@ -88,7 +87,7 @@ func dockerWorker(cfg *config.Config, ctx context.Context) {
 			Env: []string{
 				fmt.Sprintf("LIVESTREAM_INFO=%s", msg.Data),
 				fmt.Sprintf("LIVESTREAM_ID=%s", vod.ID),
-				fmt.Sprintf("LIVESTREAM_URL=%s", livestreamUrl),
+				fmt.Sprintf("LIVESTREAM_URL=%s", livestreamURL),
 				fmt.Sprintf("LIVESTREAM_PLATFORM=%s", vod.Platform),
 				fmt.Sprintf("LIVESTREAM_DOWNLOADER=%s", vod.Downloader),
 				fmt.Sprintf("NATS_HOST=%s", cfg.NATS.Host),
@@ -120,20 +119,18 @@ func dockerWorker(cfg *config.Config, ctx context.Context) {
 		}
 
 		if cfg.Controller.Plugins.Enabled {
-			util.LuaCallContainerFunction(L, vod, err == nil)
+			util.LuaCallContainerFunction(l, vod, err == nil)
 		}
-
 	}); err != nil {
 		log.Fatalf("An error occured when subscribing to topic: %s", err)
 	}
 }
 
-func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
-	L := lua.NewState()
-	defer L.Close()
+func k8sBatchWorker(cfg *config.Config) {
+	l := lua.NewState()
 	if cfg.Controller.Plugins.Enabled {
-		luaLibs.Preload(L)
-		if err := L.DoFile(cfg.Controller.Plugins.PathToPlugin); err != nil {
+		luaLibs.Preload(l)
+		if err := l.DoFile(cfg.Controller.Plugins.PathToPlugin); err != nil {
 			log.Fatalf("Wasn't able to load the Lua script: %s", err)
 		}
 	}
@@ -146,15 +143,15 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 		}
 		log.Infof("Received a VOD: %s", vod)
 		if cfg.Controller.Plugins.Enabled {
-			util.LuaCallReceiveFunction(L, vod)
+			util.LuaCallReceiveFunction(l, vod)
 		}
 
-		var livestreamUrl string
+		var livestreamURL string
 		switch vod.Platform {
 		case "youtube":
-			livestreamUrl = fmt.Sprintf("https://youtu.be/%s", vod.ID)
+			livestreamURL = fmt.Sprintf("https://youtu.be/%s", vod.ID)
 		case "rumble", "kick":
-			livestreamUrl = vod.PlaybackURL
+			livestreamURL = vod.PlaybackURL
 		}
 
 		jobName := fmt.Sprintf("dggarchiver-worker-%s", vod.ID)
@@ -216,7 +213,7 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 									},
 									{
 										Name:  "LIVESTREAM_URL",
-										Value: livestreamUrl,
+										Value: livestreamURL,
 									},
 									{
 										Name:  "LIVESTREAM_DOWNLOADER",
@@ -248,7 +245,7 @@ func k8sBatchWorker(cfg *config.Config, ctx context.Context) {
 		log.Infof("Batch '%s' created in namespace '%s'.\n", batch.Name, cfg.Controller.K8s.Namespace)
 
 		if cfg.Controller.Plugins.Enabled {
-			util.LuaCallContainerFunction(L, vod, err == nil)
+			util.LuaCallContainerFunction(l, vod, err == nil)
 		}
 	}); err != nil {
 		log.Fatalf("An error occured when subscribing to topic: %s", err)
