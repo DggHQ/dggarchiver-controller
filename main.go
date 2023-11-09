@@ -29,7 +29,7 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	var o orchestration.Platform
+	var o orchestration.Backend
 
 	if cfg.Controller.K8s.Enabled {
 		log.Infof("%s", "Running in Kubernetes Mode.")

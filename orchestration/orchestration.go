@@ -14,7 +14,7 @@ type Worker struct {
 	Status string `json:"status"`
 }
 
-type Platform interface {
+type Backend interface {
 	ListWorkers(context.Context) ([]Worker, error)
 	StartWorker(context.Context, []byte, *dggarchivermodel.VOD) error
 	Listen(context.Context, *config.Config)
