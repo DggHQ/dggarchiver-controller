@@ -1,5 +1,6 @@
 .env
-dggarchiver-controller*
-.vscode
+config.yaml
+target/
 *.lua
 !*.example.lua
+.vscode
