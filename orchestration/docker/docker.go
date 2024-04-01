@@ -12,7 +12,6 @@ import (
 	"github.com/DggHQ/dggarchiver-controller/orchestration"
 	"github.com/DggHQ/dggarchiver-controller/util"
 	dggarchivermodel "github.com/DggHQ/dggarchiver-model"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
@@ -44,7 +43,7 @@ func New(cfg *config.Config) *Docker {
 }
 
 func (d *Docker) ListWorkers(ctx context.Context) ([]orchestration.Worker, error) {
-	containers, err := d.dockerCfg.DockerSocket.ContainerList(ctx, types.ContainerListOptions{
+	containers, err := d.dockerCfg.DockerSocket.ContainerList(ctx, container.ListOptions{
 		Filters: filters.NewArgs(filters.KeyValuePair{
 			Key:   "name",
 			Value: "dggarchiver-worker",
@@ -78,7 +77,7 @@ func (d *Docker) StartWorker(ctx context.Context, data []byte, vod *dggarchiverm
 		livestreamURL = vod.PlaybackURL
 	}
 
-	container, err := d.dockerCfg.DockerSocket.ContainerCreate(ctx, &container.Config{
+	ctr, err := d.dockerCfg.DockerSocket.ContainerCreate(ctx, &container.Config{
 		Image: d.image,
 		Env: []string{
 			fmt.Sprintf("LIVESTREAM_INFO=%s", data),
@@ -110,7 +109,7 @@ func (d *Docker) StartWorker(ctx context.Context, data []byte, vod *dggarchiverm
 		return errors.Join(ErrUnableToCreate, err)
 	}
 
-	if err := d.dockerCfg.DockerSocket.ContainerStart(ctx, container.ID, types.ContainerStartOptions{}); err != nil {
+	if err := d.dockerCfg.DockerSocket.ContainerStart(ctx, ctr.ID, container.StartOptions{}); err != nil {
 		return errors.Join(ErrUnableToStart, err)
 	}
 
