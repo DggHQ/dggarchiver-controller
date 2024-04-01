@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"os"
 
 	config "github.com/DggHQ/dggarchiver-config/controller"
 	"github.com/DggHQ/dggarchiver-controller/orchestration"
 	"github.com/DggHQ/dggarchiver-controller/util"
-	log "github.com/DggHQ/dggarchiver-logger"
 	dggarchivermodel "github.com/DggHQ/dggarchiver-model"
 	"github.com/nats-io/nats.go"
 	luaLibs "github.com/vadv/gopher-lua-libs"
@@ -139,7 +140,7 @@ func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.
 	if err != nil {
 		return errors.Join(ErrUnableToCreate, err)
 	}
-	log.Debugf("Batch '%s' created in namespace '%s'.\n", batch.Name, k.k8sCfg.Namespace)
+	slog.Debug("batch created", slog.Group("batch", slog.String("name", batch.Name), slog.String("namespace", k.k8sCfg.Namespace)))
 
 	return nil
 }
@@ -149,25 +150,29 @@ func (k *K8s) Listen(ctx context.Context, cfg *config.Config) {
 	if cfg.Controller.Plugins.Enabled {
 		luaLibs.Preload(L)
 		if err := L.DoFile(cfg.Controller.Plugins.PathToPlugin); err != nil {
-			log.Fatalf("Wasn't able to load the Lua script: %s", err)
+			slog.Error("unable to load lua script", slog.Any("err", err))
+			os.Exit(1)
 		}
 	}
 
 	if _, err := cfg.NATS.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATS.Topic), func(msg *nats.Msg) {
 		vod := &dggarchivermodel.VOD{}
 		if err := json.Unmarshal(msg.Data, vod); err != nil {
-			log.Errorf("Wasn't able to unmarshal VOD, skipping: %s", err)
+			slog.Error("unable to unmarshal VOD",
+				slog.String("vod", string(msg.Data)),
+				slog.Any("err", err),
+			)
 			return
 		}
 
-		log.Infof("Received a VOD: %s", vod)
+		slog.Info("VOD received", slog.Group("vod", slog.String("id", vod.ID), slog.String("platform", vod.Platform), slog.String("downloader", vod.Downloader)))
 
 		if cfg.Controller.Plugins.Enabled {
 			util.LuaCallReceiveFunction(L, vod)
 		}
 
 		if err := k.StartWorker(ctx, msg.Data, vod); err != nil {
-			log.Errorf("error occured while creating batch job, skipping: %s", err)
+			slog.Error("unable to create batch job", slog.Any("err", err))
 			return
 		}
 
@@ -175,6 +180,7 @@ func (k *K8s) Listen(ctx context.Context, cfg *config.Config) {
 			util.LuaCallContainerFunction(L, vod, true)
 		}
 	}); err != nil {
-		log.Fatalf("An error occured when subscribing to topic: %s", err)
+		slog.Error("unable to subscribe to NATS topic", slog.Any("err", err))
+		os.Exit(1)
 	}
 }

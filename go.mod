@@ -3,9 +3,8 @@ module github.com/DggHQ/dggarchiver-controller
 go 1.19
 
 require (
-	github.com/DggHQ/dggarchiver-config v0.0.0-20230602143501-44108ae119cb
-	github.com/DggHQ/dggarchiver-logger v0.0.0-20230224190431-3025eee98c2d
-	github.com/DggHQ/dggarchiver-model v0.0.0-20230525000132-7fa749218fac
+	github.com/DggHQ/dggarchiver-config v0.0.0-20240202181241-069822c2115e
+	github.com/DggHQ/dggarchiver-model v0.0.0-20240202175036-7f6d338794fe
 	github.com/docker/docker v24.0.2+incompatible
 	github.com/nats-io/nats.go v1.26.0
 	github.com/vadv/gopher-lua-libs v0.4.1
@@ -20,7 +19,6 @@ require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
-	github.com/apex/log v1.9.0 // indirect
 	github.com/aws/aws-sdk-go v1.44.274 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cbroglie/mustache v1.4.0 // indirect

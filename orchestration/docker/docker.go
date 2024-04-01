@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"os"
 
 	config "github.com/DggHQ/dggarchiver-config/controller"
 	"github.com/DggHQ/dggarchiver-controller/orchestration"
 	"github.com/DggHQ/dggarchiver-controller/util"
-	log "github.com/DggHQ/dggarchiver-logger"
 	dggarchivermodel "github.com/DggHQ/dggarchiver-model"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -121,7 +122,8 @@ func (d *Docker) Listen(ctx context.Context, cfg *config.Config) {
 	if cfg.Controller.Plugins.Enabled {
 		luaLibs.Preload(L)
 		if err := L.DoFile(cfg.Controller.Plugins.PathToPlugin); err != nil {
-			log.Fatalf("Wasn't able to load the Lua script: %s", err)
+			slog.Error("unable to load lua script", slog.Any("err", err))
+			os.Exit(1)
 		}
 	}
 
@@ -129,18 +131,21 @@ func (d *Docker) Listen(ctx context.Context, cfg *config.Config) {
 	if _, err := cfg.NATS.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATS.Topic), func(msg *nats.Msg) {
 		vod := &dggarchivermodel.VOD{}
 		if err := json.Unmarshal(msg.Data, vod); err != nil {
-			log.Errorf("Wasn't able to unmarshal VOD, skipping: %s", err)
+			slog.Error("unable to unmarshal VOD",
+				slog.String("vod", string(msg.Data)),
+				slog.Any("err", err),
+			)
 			return
 		}
 
-		log.Infof("Received a VOD: %s", vod)
+		slog.Info("VOD received", slog.Group("vod", slog.String("id", vod.ID), slog.String("platform", vod.Platform), slog.String("downloader", vod.Downloader)))
 
 		if cfg.Controller.Plugins.Enabled {
 			util.LuaCallReceiveFunction(L, vod)
 		}
 
 		if err := d.StartWorker(ctx, msg.Data, vod); err != nil {
-			log.Errorf("error occured while starting worker, skipping: %s", err)
+			slog.Error("unable to start worker", slog.Any("err", err))
 			return
 		}
 
@@ -148,6 +153,7 @@ func (d *Docker) Listen(ctx context.Context, cfg *config.Config) {
 			util.LuaCallContainerFunction(L, vod, true)
 		}
 	}); err != nil {
-		log.Fatalf("An error occured when subscribing to topic: %s", err)
+		slog.Error("unable to subscribe to NATS topic", slog.Any("err", err))
+		os.Exit(1)
 	}
 }
