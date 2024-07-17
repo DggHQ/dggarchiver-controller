@@ -31,7 +31,7 @@ function OnContainer(vod, success)
 	local vodTable = {
 		Platform = vod.Platform,
 		Downloader = vod.Downloader,
-		ID = vod.ID,
+		ID = vod.VID,
 		PlaybackURL = vod.PlaybackURL,
 		PubTime = vod.PubTime,
 		Title = vod.Title,

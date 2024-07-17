@@ -9,12 +9,11 @@ import (
 	"os"
 
 	config "github.com/DggHQ/dggarchiver-config/controller"
+	"github.com/DggHQ/dggarchiver-controller/notifications"
 	"github.com/DggHQ/dggarchiver-controller/orchestration"
-	"github.com/DggHQ/dggarchiver-controller/util"
 	dggarchivermodel "github.com/DggHQ/dggarchiver-model"
+	"github.com/containrrr/shoutrrr/pkg/types"
 	"github.com/nats-io/nats.go"
-	luaLibs "github.com/vadv/gopher-lua-libs"
-	lua "github.com/yuin/gopher-lua"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,12 +44,12 @@ func (k *K8s) ListWorkers(_ context.Context) ([]orchestration.Worker, error) {
 
 func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.VOD) error {
 	var completions, parallelism, ttl, backoffLimit int32 = 1, 1, 30, 0
-	jobName := fmt.Sprintf("dggarchiver-worker-%s", vod.ID)
+	jobName := fmt.Sprintf("dggarchiver-worker-%s", vod.VID)
 
 	var livestreamURL string
 	switch vod.Platform {
 	case "youtube":
-		livestreamURL = fmt.Sprintf("https://youtu.be/%s", vod.ID)
+		livestreamURL = fmt.Sprintf("https://youtu.be/%s", vod.VID)
 	case "rumble", "kick":
 		livestreamURL = vod.PlaybackURL
 	}
@@ -107,7 +106,7 @@ func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.
 								},
 								{
 									Name:  "LIVESTREAM_ID",
-									Value: vod.ID,
+									Value: vod.VID,
 								},
 								{
 									Name:  "LIVESTREAM_URL",
@@ -146,15 +145,6 @@ func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.
 }
 
 func (k *K8s) Listen(ctx context.Context, cfg *config.Config) {
-	L := lua.NewState()
-	if cfg.Controller.Plugins.Enabled {
-		luaLibs.Preload(L)
-		if err := L.DoFile(cfg.Controller.Plugins.PathToPlugin); err != nil {
-			slog.Error("unable to load lua script", slog.Any("err", err))
-			os.Exit(1)
-		}
-	}
-
 	if _, err := cfg.NATS.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATS.Topic), func(msg *nats.Msg) {
 		vod := &dggarchivermodel.VOD{}
 		if err := json.Unmarshal(msg.Data, vod); err != nil {
@@ -165,10 +155,17 @@ func (k *K8s) Listen(ctx context.Context, cfg *config.Config) {
 			return
 		}
 
-		slog.Info("VOD received", slog.Group("vod", slog.String("id", vod.ID), slog.String("platform", vod.Platform), slog.String("downloader", vod.Downloader)))
+		slog.Info("VOD received", slog.Group("vod", slog.String("id", vod.VID), slog.String("platform", vod.Platform), slog.String("downloader", vod.Downloader)))
 
-		if cfg.Controller.Plugins.Enabled {
-			util.LuaCallReceiveFunction(L, vod)
+		if cfg.Notifications.Condition("receive") {
+			errs := cfg.Notifications.Sender.Send(notifications.GetReceiveMessage(vod), &types.Params{
+				"title": "Preparing to start container",
+			})
+			for _, err := range errs {
+				if err != nil {
+					slog.Warn("unable to send notification", slog.Any("vod", vod), slog.Any("err", err))
+				}
+			}
 		}
 
 		if err := k.StartWorker(ctx, msg.Data, vod); err != nil {
@@ -176,8 +173,15 @@ func (k *K8s) Listen(ctx context.Context, cfg *config.Config) {
 			return
 		}
 
-		if cfg.Controller.Plugins.Enabled {
-			util.LuaCallContainerFunction(L, vod, true)
+		if cfg.Notifications.Condition("container") {
+			errs := cfg.Notifications.Sender.Send(notifications.GetContainerMessage(vod, fmt.Sprintf("dggarchiver-worker-%s", vod.VID)), &types.Params{
+				"title": "Started container",
+			})
+			for _, err := range errs {
+				if err != nil {
+					slog.Warn("unable to send notification", slog.Any("vod", vod), slog.Any("err", err))
+				}
+			}
 		}
 	}); err != nil {
 		slog.Error("unable to subscribe to NATS topic", slog.Any("err", err))
