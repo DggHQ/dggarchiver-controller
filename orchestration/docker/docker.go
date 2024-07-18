@@ -30,6 +30,7 @@ type Docker struct {
 	image     string
 	natsHost  string
 	natsTopic string
+	proxy     string
 }
 
 func New(cfg *config.Config) *Docker {
@@ -38,6 +39,7 @@ func New(cfg *config.Config) *Docker {
 		image:     cfg.Controller.WorkerImage,
 		natsHost:  cfg.NATS.Host,
 		natsTopic: cfg.NATS.Topic,
+		proxy:     cfg.ProxyURL,
 	}
 }
 
@@ -86,6 +88,7 @@ func (d *Docker) StartWorker(ctx context.Context, data []byte, vod *dggarchiverm
 			fmt.Sprintf("LIVESTREAM_DOWNLOADER=%s", vod.Downloader),
 			fmt.Sprintf("NATS_HOST=%s", d.natsHost),
 			fmt.Sprintf("NATS_TOPIC=%s", d.natsTopic),
+			fmt.Sprintf("DOWNLOAD_PROXY=%s", d.proxy),
 			"VERBOSE=true",
 		},
 	}, &container.HostConfig{
