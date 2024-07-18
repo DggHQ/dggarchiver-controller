@@ -1,11 +1,9 @@
 github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 h1:UQHMgLO+TxOElx5B5HZ4hJQsoJ/PvUvKRhJHDQXO8P8=
 github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
-github.com/DggHQ/dggarchiver-config v0.0.0-20240702064918-3c25419d80f8 h1:5GqyYPCznKgxscNloxpathb580M6L49t8ZvDnpjwWKE=
-github.com/DggHQ/dggarchiver-config v0.0.0-20240702064918-3c25419d80f8/go.mod h1:0bek3YWF1JDlMSebG5KR7+dYr+nytrCTahvzbb30qVo=
-github.com/DggHQ/dggarchiver-config v0.0.0-20240717231932-b3f240aa005e h1:C+kUJbHRNgGE9c2wxlGNkwZSvPMqFHwUsdPSJ0jE3Vw=
-github.com/DggHQ/dggarchiver-config v0.0.0-20240717231932-b3f240aa005e/go.mod h1:0bek3YWF1JDlMSebG5KR7+dYr+nytrCTahvzbb30qVo=
-github.com/DggHQ/dggarchiver-model v0.0.0-20240701043726-064087a74466 h1:3y4MQ4VMnVV2/6ZFeZMgKmSV9FwmPm54Rb0PWzJtDPA=
-github.com/DggHQ/dggarchiver-model v0.0.0-20240701043726-064087a74466/go.mod h1:p1i5pIUtDhsoYfL7ViIdojIK6tAsJKxhbH55OOmBlmo=
+github.com/DggHQ/dggarchiver-config v0.0.0-20240718094214-f344d7a5b3b8 h1:5dBI1BlwuScrLSpUXc14HmKP8Cj6HAhcwE3rozGodMs=
+github.com/DggHQ/dggarchiver-config v0.0.0-20240718094214-f344d7a5b3b8/go.mod h1:XQSeSykoMw5msaBcdi1Aat0Lc3yN61x5GS//9MW5wlk=
+github.com/DggHQ/dggarchiver-model v0.0.0-20240718093510-3b74301ce748 h1:dbDk+ENnkgz6uCMEgVDm14PwVezgLDjls0DoZ+6btMI=
+github.com/DggHQ/dggarchiver-model v0.0.0-20240718093510-3b74301ce748/go.mod h1:p1i5pIUtDhsoYfL7ViIdojIK6tAsJKxhbH55OOmBlmo=
 github.com/Microsoft/go-winio v0.6.1 h1:9/kr64B9VUZrLm5YYwbGtUJnMgqWVOdUAXu6Migciow=
 github.com/Microsoft/go-winio v0.6.1/go.mod h1:LRdKpFKfdobln8UmuiYcKPot9D2v6svN5+sAH+4kjUM=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=

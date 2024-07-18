@@ -86,6 +86,7 @@ func (d *Docker) StartWorker(ctx context.Context, data []byte, vod *dggarchiverm
 			fmt.Sprintf("LIVESTREAM_URL=%s", livestreamURL),
 			fmt.Sprintf("LIVESTREAM_PLATFORM=%s", vod.Platform),
 			fmt.Sprintf("LIVESTREAM_DOWNLOADER=%s", vod.Downloader),
+			fmt.Sprintf("QUALITY=%s", vod.Quality),
 			fmt.Sprintf("NATS_HOST=%s", d.natsHost),
 			fmt.Sprintf("NATS_TOPIC=%s", d.natsTopic),
 			fmt.Sprintf("DOWNLOAD_PROXY=%s", d.proxy),
@@ -94,8 +95,8 @@ func (d *Docker) StartWorker(ctx context.Context, data []byte, vod *dggarchiverm
 	}, &container.HostConfig{
 		Mounts: []mount.Mount{
 			{
-				Type:   mount.TypeVolume,
-				Source: "dggarchiver-lbrynet_videos",
+				Type:   mount.Type(d.dockerCfg.Mount.Type),
+				Source: d.dockerCfg.Mount.Source,
 				Target: "/videos",
 			},
 		},

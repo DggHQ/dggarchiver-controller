@@ -119,6 +119,10 @@ func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.
 									Value: vod.Downloader,
 								},
 								{
+									Name:  "QUALITY",
+									Value: vod.Quality,
+								},
+								{
 									Name:  "NATS_HOST",
 									Value: k.natsHost,
 								},
