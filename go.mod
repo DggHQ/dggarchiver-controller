@@ -5,8 +5,8 @@ go 1.21
 toolchain go1.22.1
 
 require (
-	github.com/DggHQ/dggarchiver-config v0.0.0-20240718103235-c0616ec0e80c
-	github.com/DggHQ/dggarchiver-model v0.0.0-20240718103025-03ef5d760d1e
+	github.com/DggHQ/dggarchiver-config v0.0.0-20240722035627-21836037a1e0
+	github.com/DggHQ/dggarchiver-model v0.0.0-20240722035243-bcb11567a7a8
 	github.com/containrrr/shoutrrr v0.8.0
 	github.com/docker/docker v26.0.0+incompatible
 	github.com/nats-io/nats.go v1.34.0

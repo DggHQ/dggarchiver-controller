@@ -26,7 +26,6 @@ type K8s struct {
 	image     string
 	natsHost  string
 	natsTopic string
-	proxy     string
 }
 
 func New(cfg *config.Config) *K8s {
@@ -35,7 +34,6 @@ func New(cfg *config.Config) *K8s {
 		image:     cfg.Controller.WorkerImage,
 		natsHost:  cfg.NATS.Host,
 		natsTopic: cfg.NATS.Topic,
-		proxy:     cfg.ProxyURL,
 	}
 }
 
@@ -132,7 +130,7 @@ func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.
 								},
 								{
 									Name:  "DOWNLOAD_PROXY",
-									Value: k.proxy,
+									Value: vod.WorkerProxy,
 								},
 								{
 									Name:  "VERBOSE",
