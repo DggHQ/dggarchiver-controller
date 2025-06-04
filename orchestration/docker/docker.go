@@ -72,7 +72,7 @@ func (d *Docker) StartWorker(ctx context.Context, data []byte, vod *dggarchiverm
 	switch vod.Platform {
 	case "youtube":
 		livestreamURL = fmt.Sprintf("https://youtu.be/%s", vod.VID)
-	case "rumble", "kick":
+	default:
 		livestreamURL = vod.PlaybackURL
 	}
 
