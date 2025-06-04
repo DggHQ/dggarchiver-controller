@@ -30,7 +30,6 @@ type Docker struct {
 	image     string
 	natsHost  string
 	natsTopic string
-	proxy     string
 }
 
 func New(cfg *config.Config) *Docker {
@@ -39,7 +38,6 @@ func New(cfg *config.Config) *Docker {
 		image:     cfg.Controller.WorkerImage,
 		natsHost:  cfg.NATS.Host,
 		natsTopic: cfg.NATS.Topic,
-		proxy:     cfg.ProxyURL,
 	}
 }
 
@@ -74,7 +72,7 @@ func (d *Docker) StartWorker(ctx context.Context, data []byte, vod *dggarchiverm
 	switch vod.Platform {
 	case "youtube":
 		livestreamURL = fmt.Sprintf("https://youtu.be/%s", vod.VID)
-	case "rumble", "kick":
+	default:
 		livestreamURL = vod.PlaybackURL
 	}
 
@@ -86,16 +84,17 @@ func (d *Docker) StartWorker(ctx context.Context, data []byte, vod *dggarchiverm
 			fmt.Sprintf("LIVESTREAM_URL=%s", livestreamURL),
 			fmt.Sprintf("LIVESTREAM_PLATFORM=%s", vod.Platform),
 			fmt.Sprintf("LIVESTREAM_DOWNLOADER=%s", vod.Downloader),
+			fmt.Sprintf("QUALITY=%s", vod.Quality),
 			fmt.Sprintf("NATS_HOST=%s", d.natsHost),
 			fmt.Sprintf("NATS_TOPIC=%s", d.natsTopic),
-			fmt.Sprintf("DOWNLOAD_PROXY=%s", d.proxy),
+			fmt.Sprintf("DOWNLOAD_PROXY=%s", vod.WorkerProxy),
 			"VERBOSE=true",
 		},
 	}, &container.HostConfig{
 		Mounts: []mount.Mount{
 			{
-				Type:   mount.TypeVolume,
-				Source: "dggarchiver-lbrynet_videos",
+				Type:   mount.Type(d.dockerCfg.Mount.Type),
+				Source: d.dockerCfg.Mount.Source,
 				Target: "/videos",
 			},
 		},
