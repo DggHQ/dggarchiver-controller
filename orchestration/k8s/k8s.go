@@ -139,6 +139,14 @@ func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.
 									Name:  "LIVESTREAM_PLATFORM",
 									Value: vod.Platform,
 								},
+								{
+									Name:  "QUALITY",
+									Value: vod.Quality,
+								},
+								{
+									Name:  "DOWNLOAD_PROXY",
+									Value: vod.WorkerProxy,
+								},
 							},
 						},
 					},
