@@ -152,7 +152,7 @@ func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.
 }
 
 func (k *K8s) Listen(ctx context.Context, cfg *config.Config) {
-	if _, err := cfg.NATS.NatsConnection.Subscribe(fmt.Sprintf("%s.job", cfg.NATS.Topic), func(msg *nats.Msg) {
+	if _, err := cfg.NATS.NatsConnection.QueueSubscribe(fmt.Sprintf("%s.job", cfg.NATS.Topic), "workerqueue", func(msg *nats.Msg) {
 		vod := &dggarchivermodel.VOD{}
 		if err := json.Unmarshal(msg.Data, vod); err != nil {
 			slog.Error("unable to unmarshal VOD",
