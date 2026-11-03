@@ -35,7 +35,6 @@ func New(cfg *config.Config) *K8s {
 		image:     cfg.Controller.WorkerImage,
 		natsHost:  cfg.NATS.Host,
 		natsTopic: cfg.NATS.Topic,
-		proxy:     cfg.ProxyURL,
 	}
 }
 
