@@ -68,9 +68,10 @@ func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.
 			Parallelism:             &parallelism,
 			Template: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
+					ServiceAccountName: k.k8sCfg.ServiceAccountName,
 					ImagePullSecrets: []v1.LocalObjectReference{
 						{
-							Name: "registry-1",
+							Name: "vod-regcred",
 						},
 					},
 					Volumes: []v1.Volume{
@@ -78,7 +79,7 @@ func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.
 							Name: "dggworker-volume",
 							VolumeSource: v1.VolumeSource{
 								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "dggworker-pvc",
+									ClaimName: "vods-data",
 								},
 							},
 						},
@@ -86,8 +87,9 @@ func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.
 					RestartPolicy: v1.RestartPolicyNever,
 					Containers: []v1.Container{
 						{
-							Name:  jobName,
-							Image: k.image,
+							Name:            jobName,
+							Image:           k.image,
+							ImagePullPolicy: v1.PullAlways,
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "dggworker-volume",
