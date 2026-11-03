@@ -79,7 +79,7 @@ func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.
 							Name: "dggworker-volume",
 							VolumeSource: v1.VolumeSource{
 								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "vods-data",
+									ClaimName: "vods",
 								},
 							},
 						},
