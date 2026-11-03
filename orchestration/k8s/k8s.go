@@ -135,6 +135,10 @@ func (k *K8s) StartWorker(_ context.Context, data []byte, vod *dggarchivermodel.
 									Name:  "VERBOSE",
 									Value: "true",
 								},
+								{
+									Name:  "LIVESTREAM_PLATFORM",
+									Value: vod.Platform,
+								},
 							},
 						},
 					},
